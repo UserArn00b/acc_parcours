@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>ACC · Les parcours du club</title>
+    <meta
+      name="description"
+      content="Les parcours route, gravel et VTT de l’ACC à Bordeaux. Trouvez votre prochaine sortie et téléchargez sa trace GPX."
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <link rel="stylesheet" href="style.css?v=31" />
+    <script
+      defer
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    ></script>
+    <script defer src="app.js?v=34"></script>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="./"
+        ><b>ACC<span>↗</span></b
+        ><span>BORDEAUX<br />LES PARCOURS DU CLUB</span></a
+      ><a class="nav" href="#catalogue">Explorer les parcours ↗</a>
+    </header>
+    <main>
+      <section class="hero">
+        <div class="eyebrow">BORDEAUX & SES ALENTOURS</div>
+        <h1>Les bonnes routes.<br /><em>Les belles sorties.</em></h1>
+        <div class="intro">
+          <p>
+            Les traces du club, réunies au même endroit.<br />Choisissez votre
+            parcours. Téléchargez la trace. Roulez.
+          </p>
+          <span class="hero-count"
+            ><strong id="total">—</strong> parcours à explorer</span
+          >
+        </div>
+        <div class="line-art" aria-hidden="true">↗</div>
+      </section>
+      <section id="catalogue">
+        <div class="section-title">
+          <h2>À vous de choisir.</h2>
+          <span>01 — LE CATALOGUE</span>
+        </div>
+        <form id="filters">
+          <fieldset class="sport-filter">
+            <legend>Pratique</legend>
+            <div class="sport-options">
+              <label
+                ><input type="radio" name="sport" value="" checked /><span
+                  >Toutes</span
+                ></label
+              ><label
+                ><input type="radio" name="sport" value="route" /><span
+                  >Route</span
+                ></label
+              ><label
+                ><input type="radio" name="sport" value="gravel" /><span
+                  >Gravel</span
+                ></label
+              ><label
+                ><input type="radio" name="sport" value="vtt" /><span
+                  >VTT</span
+                ></label
+              >
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Distance · km</legend>
+            <div class="range">
+              <input
+                id="minKm"
+                type="number"
+                min="0"
+                placeholder="Min"
+                aria-label="Distance minimale"
+              /><span>—</span
+              ><input
+                id="maxKm"
+                type="number"
+                min="0"
+                placeholder="Max"
+                aria-label="Distance maximale"
+              />
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Dénivelé positif · m</legend>
+            <div class="range">
+              <input
+                id="minGain"
+                type="number"
+                min="0"
+                placeholder="Min"
+                aria-label="Dénivelé minimal"
+              /><span>—</span
+              ><input
+                id="maxGain"
+                type="number"
+                min="0"
+                placeholder="Max"
+                aria-label="Dénivelé maximal"
+              />
+            </div>
+          </fieldset>
+          <label id="directionLabel" hidden
+            >Direction de l’aller<select id="direction">
+              <option value="">Toutes</option>
+              <option>N</option>
+              <option>NE</option>
+              <option>E</option>
+              <option>SE</option>
+              <option>S</option>
+              <option>SO</option>
+              <option>O</option>
+              <option>NO</option>
+            </select></label
+          >
+        </form>
+        <div class="results">
+          <p id="count" role="status">Chargement des parcours…</p>
+          <div>
+            <div
+              class="view-switch"
+              role="group"
+              aria-label="Affichage des parcours"
+            >
+              <button
+                id="viewGrid"
+                type="button"
+                aria-pressed="true"
+                aria-controls="grid routeTable"
+              >
+                Grille
+              </button>
+              <button
+                id="viewList"
+                type="button"
+                aria-pressed="false"
+                aria-controls="grid routeTable"
+              >
+                Liste
+              </button>
+            </div>
+            <button id="reset" type="button">Réinitialiser</button
+            ><label class="sort"
+              >Trier par
+              <select id="sort">
+                <option value="km-asc">Distance croissante</option>
+                <option value="km-desc">Distance décroissante</option>
+                <option value="gain-asc">Dénivelé croissant</option>
+                <option value="gain-desc">Dénivelé décroissant</option>
+              </select></label
+            >
+          </div>
+        </div>
+        <div id="grid" class="grid"></div>
+        <table
+          id="routeTable"
+          class="route-table"
+          hidden
+          aria-label="Parcours du club"
+        >
+          <thead>
+            <tr>
+              <th scope="col" class="trace-column">Tracé</th>
+              <th scope="col">Pratique</th>
+              <th
+                scope="col"
+                id="kmHeading"
+                class="number-column"
+                aria-sort="ascending"
+              >
+                <button type="button" id="sortKm">
+                  Distance <span id="kmOrder" aria-hidden="true">↑</span>
+                </button>
+              </th>
+              <th
+                scope="col"
+                id="gainHeading"
+                class="number-column"
+                aria-sort="none"
+              >
+                <button type="button" id="sortGain">
+                  Dénivelé <span id="gainOrder" aria-hidden="true">↕</span>
+                </button>
+              </th>
+              <th scope="col" class="download-column">GPX</th>
+            </tr>
+          </thead>
+          <tbody id="routeRows"></tbody>
+        </table>
+        <p id="empty" hidden>
+          Aucun parcours pour ces critères. Essayez d’élargir votre recherche.
+        </p>
+      </section>
+    </main>
+    <footer>
+      <b>ACC ↗</b>
+      <p>Bordeaux · Une trace, une nouvelle sortie.</p>
+      <span>Distances et dénivelés estimés à partir des GPX.</span>
+    </footer>
+    <dialog id="detail" aria-labelledby="detailTitle">
+      <div class="detail-head">
+        <button id="close" aria-label="Fermer le détail">✕</button
+        ><span class="eyebrow" id="detailSport"></span>
+        <h2 id="detailTitle" class="sr-only"></h2>
+        <p id="detailStats"></p>
+        <a id="download" class="download" download>GPX ↓</a>
+        <div class="map-toolbar">
+          <label for="basemap">Fond de carte</label
+          ><select id="basemap" aria-label="Fond de carte">
+            <option value="light">Clair</option>
+            <option value="color" selected>Couleur</option>
+            <option value="satellite">Satellite</option>
+          </select>
+        </div>
+      </div>
+      <section
+        id="elevationProfile"
+        class="profile"
+        aria-label="Profil altimétrique"
+      ></section>
+      <div id="map" data-basemap="color"></div>
+      <p class="map-note">
+        Le point marque le départ. Vérifiez les conditions et l’accessibilité
+        des voies avant de partir.
+      </p>
+    </dialog>
+  </body>
+</html>
