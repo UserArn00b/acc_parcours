@@ -1,45 +1,33 @@
-# ACC Bordeaux · Catalogue de parcours
+# ACC Bordeaux · Ajouter une trace GPX
 
-Le catalogue vélo de l’ACC Bordeaux permet de choisir une sortie par pratique, distance et dénivelé, puis d’emporter la trace GPX sur son compteur. La collection de départ réunit **32 parcours route et 22 gravel**. Elle accueille aussi les sorties VTT.
+Pour ajouter une sortie au catalogue du club, il te faut le fichier `.gpx` du parcours et un accès en écriture au dépôt. Tu peux tout faire depuis ton navigateur.
 
-![Fiche d’un parcours gravel de 41,2 km autour de Bordeaux, avec sa carte et son profil altimétrique](docs/apercu-parcours.jpg)
+## 1. Choisis la pratique
 
-## Explorer le catalogue
+Exporte la trace au format GPX depuis Strava, puis ouvre l’un des dossiers ci-dessous. Le dossier choisi détermine le filtre sous lequel les cyclistes retrouveront le parcours.
 
-- **Choisir une sortie.** La grille donne un aperçu des tracés. La vue liste permet de comparer les kilomètres et le dénivelé et de trier les résultats.
-- **Repérer une montée.** Dans la fiche, survoler la carte ou le profil place un repère au même endroit sur les deux vues. Lorsque les données sont disponibles, on peut aussi afficher les revêtements estimés.
-- **Emporter le parcours.** L’icône de téléchargement enregistre le GPX de la sortie choisie.
+| Pratique | Dossier de dépôt |
+| --- | --- |
+| Route | [Ajouter une trace route](data/gpx/route/) |
+| Gravel | [Ajouter une trace gravel](data/gpx/gravel/) |
+| VTT | [Ajouter une trace VTT](data/gpx/vtt/) |
 
-## Ajouter une trace
+## 2. Dépose le GPX
 
-1. Ouvrir le dossier de la pratique dans le dépôt : [Route](data/gpx/route/), [Gravel](data/gpx/gravel/) ou [VTT](data/gpx/vtt/).
-2. Choisir **Add file → Upload files**, déposer le GPX et enregistrer sur `main`.
-3. Suivre la publication dans l’onglet **Actions**. Une fois terminée, le parcours est disponible dans le catalogue.
+1. Dans le dossier choisi, clique sur **Add file → Upload files**.
+2. Glisse ton fichier dans la fenêtre. Tu peux déposer plusieurs GPX ensemble s’ils relèvent de la même pratique. Pour une nouvelle sortie, utilise un nom de fichier libre dans ce dossier afin de conserver les traces déjà présentes.
+3. Saisis un message court, par exemple *Ajout de la sortie gravel de Cestas*. Enregistre sur la branche `main` avec **Commit changes**.
 
-Le nom est attribué à la publication. Par exemple, `08112026_gravel_41km_204d.gpx` correspond à une trace gravel ajoutée le 8 novembre 2026, de 41 km et 204 m de dénivelé positif. Deux fichiers d’une même pratique ayant les mêmes points, segments et sens de parcours donnent une seule entrée.
+Le site se met à jour automatiquement. Tu peux conserver le nom donné par Strava et laisser l’archive `data/parcours.zip` telle quelle.
 
-## Démarrage local
+## 3. Vérifie le parcours
 
-Depuis la racine du dépôt, avec Python 3.12 :
+Dans l’onglet **Actions**, ouvre l’exécution **Ajouter les parcours et publier** qui porte ton message. Quand elle affiche une coche verte, ouvre le catalogue, sélectionne la pratique et repère la sortie par sa distance et son dénivelé. Clique sur sa fiche pour vérifier le tracé sur la carte.
 
-```sh
-python3 tools/prepare_site.py
-python3 -m http.server 8000 --directory _site
-```
+Le fichier téléchargeable reçoit un nom comme `08112026_gravel_41km_204d.gpx` pour une trace ajoutée le 8 novembre 2026, de 41 km et 204 m de dénivelé positif. Les kilomètres et le dénivelé sont arrondis à l’entier.
 
-Ouvrir [le catalogue local](http://localhost:8000). Après une modification, relancer la préparation pour actualiser `_site/`.
+### Si la sortie n’apparaît pas
 
-## Fonctionnement et publication
-
-Le site utilise HTML, CSS et JavaScript. Leaflet affiche les traces sur la carte. À chaque publication, Python extrait la collection initiale de `data/parcours.zip`, y ajoute les GPX déposés par le club et génère les profils. GitHub Pages sert ensuite les fichiers statiques, dont chaque GPX individuel.
-
-[Guide de première publication](docs/installation.md) · [Action de publication](.github/workflows/pages.yml) · [Générateur du catalogue](tools/build_catalog.py)
-
-## Tests
-
-La vérification des filtres, du tri et des interactions utilise Node.js 22. Les tests Python couvrent la lecture des GPX, les doublons, la préparation du site et les revêtements.
-
-```sh
-node --test tests/app.test.cjs
-python3 -m unittest discover -s tools -p 'test_*.py'
-```
+- **La publication est en cours.** Attends la coche verte dans **Actions**, puis recharge le catalogue.
+- **La publication a réussi.** Réinitialise les filtres. Si la même pratique contient déjà les mêmes points GPS dans les mêmes segments et dans le même ordre, le catalogue conserve une seule fiche, même si les deux fichiers portent des noms différents.
+- **La publication a échoué.** Ouvre l’étape en rouge dans **Actions**. Si elle signale un GPX invalide, exporte à nouveau la trace et remplace le fichier concerné dans son dossier. Enregistrer la correction sur `main` relance la publication.
