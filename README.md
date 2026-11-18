@@ -1,58 +1,45 @@
-# Les parcours de l’ACC Bordeaux
+# ACC Bordeaux · Catalogue de parcours
 
-Catalogue public des parcours route, gravel et VTT du club. Les cyclistes peuvent comparer les parcours en grille ou en liste, filtrer par pratique, distance ou dénivelé, puis ouvrir une fiche pour explorer la carte, suivre les montées sur le profil et télécharger le GPX.
+Le catalogue vélo de l’ACC Bordeaux permet de choisir une sortie par pratique, distance et dénivelé, puis d’emporter la trace GPX sur son compteur. La collection de départ réunit **32 parcours route et 22 gravel**. Elle accueille aussi les sorties VTT.
 
-## Publier pour la première fois
+![Fiche d’un parcours gravel de 41,2 km autour de Bordeaux, avec sa carte et son profil altimétrique](docs/apercu-parcours.jpg)
 
-1. Décompresser le paquet `acc-parcours-github-compact.zip`. **Garder l’archive intérieure `data/parcours.zip` compressée**. Elle contient les 54 parcours de départ (32 route et 22 gravel), leurs profils et les revêtements disponibles.
-2. Dans un dépôt GitHub sur la branche `main`, déposer **le contenu du dossier** `acc-parcours`. À la racine du dépôt, on doit voir `index.html`, `data/`, `tools/`, `tests/` et `.github/`. Sur Mac, **⌘ Maj .** affiche les fichiers cachés dans le Finder.
-3. Dans **Settings → Pages → Source**, choisir **GitHub Actions**. Dans **Actions → Ajouter les parcours et publier → Run workflow**, choisir `main` et lancer la publication.
-4. Une fois la publication terminée, récupérer l’adresse dans **Settings → Pages**. Pour intégrer le catalogue au site du club, utiliser cette adresse comme destination du lien « Parcours ».
+## Explorer le catalogue
 
-## Ajouter un parcours depuis GitHub
+- **Choisir une sortie.** La grille donne un aperçu des tracés. La vue liste permet de comparer les kilomètres et le dénivelé et de trier les résultats.
+- **Repérer une montée.** Dans la fiche, survoler la carte ou le profil place un repère au même endroit sur les deux vues. Lorsque les données sont disponibles, on peut aussi afficher les revêtements estimés.
+- **Emporter le parcours.** L’icône de téléchargement enregistre le GPX de la sortie choisie.
 
-1. Ouvrir `data/gpx/route/`, `data/gpx/gravel/` ou `data/gpx/vtt/` selon la pratique.
-2. Choisir **Add file → Upload files**, déposer le ou les GPX exportés depuis Strava, puis enregistrer sur `main`. Pour un nouveau parcours, choisir un nom de fichier encore libre dans ce dossier.
-3. Suivre la publication dans **Actions**. GitHub décompresse la base, lit les nouveaux GPX, calcule les statistiques et publie le catalogue. Chaque GPX devient téléchargeable individuellement.
+## Ajouter une trace
 
-L’archive de départ peut rester telle quelle pour tous les ajouts courants. Pour retirer un parcours ajouté séparément, supprimer son GPX du dossier de pratique et enregistrer la modification.
+1. Ouvrir le dossier de la pratique dans le dépôt : [Route](data/gpx/route/), [Gravel](data/gpx/gravel/) ou [VTT](data/gpx/vtt/).
+2. Choisir **Add file → Upload files**, déposer le GPX et enregistrer sur `main`.
+3. Suivre la publication dans l’onglet **Actions**. Une fois terminée, le parcours est disponible dans le catalogue.
 
-### Noms et doublons
+Le nom est attribué à la publication. Par exemple, `08112026_gravel_41km_204d.gpx` correspond à une trace gravel ajoutée le 8 novembre 2026, de 41 km et 204 m de dénivelé positif. Deux fichiers d’une même pratique ayant les mêmes points, segments et sens de parcours donnent une seule entrée.
 
-Le nom publié est aussi le nom téléchargé. Par exemple, `08112026_gravel_41km_204d.gpx` désigne un gravel ajouté le 8 novembre 2026, de 41 km et 204 m de dénivelé positif. La date suit le format JJMMAAAA. Pour les ajouts GitHub, elle vient du commit d’ajout. En aperçu local, un GPX sans historique utilise sa date de modification. Les valeurs du nom sont arrondies à l’entier. Un dénivelé inconnu donne `NAd`.
+## Démarrage local
 
-Dans une même pratique, deux GPX avec les mêmes coordonnées, dans les mêmes segments et dans le même ordre, comptent pour un seul parcours. Un enregistrement GPS légèrement différent ou parcouru en sens inverse constitue une trace distincte. Si deux parcours distincts donnent le même nom arrondi, un identifiant supplémentaire évite d’écraser un fichier.
-
-## Vérifier le site en local
-
-Depuis la racine du projet, avec Python 3.12 (version utilisée par GitHub) :
+Depuis la racine du dépôt, avec Python 3.12 :
 
 ```sh
 python3 tools/prepare_site.py
 python3 -m http.server 8000 --directory _site
 ```
 
-Ouvrir **http://localhost:8000**. Relancer la préparation après chaque modification. Le dossier `_site/` est recréé à chaque fois. Les changements se font donc dans les fichiers sources à la racine. Les fonds de carte distants nécessitent une connexion Internet.
+Ouvrir [le catalogue local](http://localhost:8000). Après une modification, relancer la préparation pour actualiser `_site/`.
 
-Pour lancer les tests, utiliser Python et Node.js 22 :
+## Fonctionnement et publication
+
+Le site utilise HTML, CSS et JavaScript. Leaflet affiche les traces sur la carte. À chaque publication, Python extrait la collection initiale de `data/parcours.zip`, y ajoute les GPX déposés par le club et génère les profils. GitHub Pages sert ensuite les fichiers statiques, dont chaque GPX individuel.
+
+[Guide de première publication](docs/installation.md) · [Action de publication](.github/workflows/pages.yml) · [Générateur du catalogue](tools/build_catalog.py)
+
+## Tests
+
+La vérification des filtres, du tri et des interactions utilise Node.js 22. Les tests Python couvrent la lecture des GPX, les doublons, la préparation du site et les revêtements.
 
 ```sh
-python3 -m unittest discover -s tools -p 'test_*.py'
 node --test tests/app.test.cjs
+python3 -m unittest discover -s tools -p 'test_*.py'
 ```
-
-## Où intervenir dans le code
-
-| Fichier | Rôle |
-| --- | --- |
-| `index.html`, `style.css`, `app.js` | Interface, filtres, vues grille et liste, carte et profil interactif |
-| `tools/prepare_site.py` | Préparation du site à partir de l’archive et des ajouts |
-| `tools/build_catalog.py` | Lecture des GPX, calcul des statistiques et des profils, noms et doublons |
-| `tools/enrich_surfaces.py` | Estimation facultative des revêtements à partir des données OpenStreetMap |
-| `.github/workflows/` | Tests des modifications proposées et publication des changements de la branche principale |
-
-## Si un parcours manque
-
-Vérifier d’abord les filtres du catalogue, puis l’état de la dernière publication dans **Actions**. Un ajout peut aussi correspondre à un tracé déjà présent. Si la préparation échoue, ouvrir l’étape en erreur pour retrouver le fichier concerné. Le lecteur attend une trace GPX avec au moins deux points de trace et des coordonnées valides. Corriger le fichier sur `main` déclenche une nouvelle publication.
-
-Le dénivelé correspond à la somme des montées entre points successifs. Il peut différer du chiffre lissé de Strava. Les revêtements sont des estimations facultatives, consultables sur les parcours enrichis.
