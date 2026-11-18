@@ -64,8 +64,9 @@ def prepare_site(root=ROOT):
             shutil.copyfile(source, destination)
             dates[source.relative_to(root).as_posix()] = addition_date(root, source)
     build_catalog(output, dates)
-    for name in ("index.html", "style.css", "app.js", ".nojekyll"):
+    for name in ("index.html", "style.css", "app.js"):
         shutil.copyfile(root / name, output / name)
+    (output / ".nojekyll").touch()
     print("Site prêt dans _site/ (archive source non publiée)")
     return output
 
