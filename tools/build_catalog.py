@@ -6,6 +6,8 @@ import shutil
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
+from route_analysis import elevation_analysis, outbound_vector, relief
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -29,6 +31,7 @@ def distance(a, b):
 
 
 def read_track(path):
+    """Read GPX geometry, a full profile, and unrounded distance and positive gain."""
     root = ET.parse(path).getroot()
     if root.tag.split("}")[-1] != "gpx":
         raise ValueError(f"Fichier GPX attendu : {path}")
@@ -56,17 +59,18 @@ def read_track(path):
                 gain += max(0, e - last)
             last = e
             pts.append(point)
-            profile.append([round(km, 6), e, *point, segment_index])
+            profile.append([km, e, *point, segment_index])
         if pts:
             segments.append(pts)
     if len(profile) < 2:
         raise ValueError(f"Pas de trace : {path}")
     name = root.find(".//{*}trk/{*}name")
     title = name.text.strip() if name is not None and name.text else path.stem
-    return title, segments, profile, round(km, 1), None if missing else round(gain)
+    return title, segments, profile, km, None if missing else gain
 
 
 def build_catalog(site_root=ROOT, import_dates=None):
+    """Publish lightweight route metadata and full details, retaining matching surface data."""
     catalog = site_root / "data/routes.json"
     existing = (
         {r["file"]: r for r in json.loads(catalog.read_text())} if catalog.exists() else {}
@@ -82,6 +86,7 @@ def build_catalog(site_root=ROOT, import_dates=None):
     gpx_dir = site_root / "data/gpx"
     files = (p for p in gpx_dir.rglob("*") if p.suffix.lower() == ".gpx")
     def priority(path):
+        """Keep existing catalogue entries first when choosing a duplicate GPX."""
         key = path.relative_to(site_root).as_posix()
         date = (import_dates or {}).get(key, "")
         return (key not in existing, date[4:], date[2:4], date[:2], key)
@@ -92,7 +97,9 @@ def build_catalog(site_root=ROOT, import_dates=None):
             raise ValueError(f"Lien symbolique GPX non accepté : {f}")
         if len(relative.parts) > 2 or (len(relative.parts) == 2 and relative.parts[0] not in ("route", "gravel", "vtt")):
             raise ValueError(f"Ranger le GPX dans route, gravel ou vtt : {f}")
-        title, segments, profile, km, gain = read_track(f)
+        title, segments, profile, distance_km, gain_m = read_track(f)
+        km = round(distance_km, 1)
+        gain = None if gain_m is None else round(gain_m)
         file_key = f.relative_to(site_root).as_posix()
         old = existing.get(file_key, {})
         route_id = old.get("id") or hashlib.sha256(relative.as_posix().encode()).hexdigest()[:12]
@@ -113,7 +120,11 @@ def build_catalog(site_root=ROOT, import_dates=None):
         detail_path = site_root / "data/details" / f"{route_id}.json"
         old_detail = json.loads(detail_path.read_text()) if detail_path.exists() else {}
         fingerprint = hashlib.sha256(f.read_bytes()).hexdigest()
-        detail = {"points": profile, "fingerprint": fingerprint}
+        bins, climbs = elevation_analysis(profile)
+        outbound = outbound_vector(profile, distance_km)
+        profile = [[round(point[0], 6), *point[1:]] for point in profile]
+        detail = {"points": profile, "fingerprint": fingerprint,
+                  "slopeBins": bins, "climbs": climbs}
         if old_detail.get("fingerprint") == fingerprint:
             for key in ("surfaces", "surfaceSource", "surfaceDate"):
                 if key in old_detail:
@@ -132,6 +143,8 @@ def build_catalog(site_root=ROOT, import_dates=None):
                 gain=gain,
                 sport=sport,
                 direction=old.get("direction"),
+                relief=relief(distance_km, gain_m),
+                outbound=outbound,
                 profile=profile[:: max(1, len(profile) // 250)] + [profile[-1]],
                 file="data/gpx/" + relative.as_posix(),
                 segments=simplified,

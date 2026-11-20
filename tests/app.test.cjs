@@ -69,23 +69,24 @@ function loadApp() {
 }
 const filters = {
   sport: "",
-  direction: "",
+  relief: "",
+  wind: "",
   minKm: "",
   maxKm: "",
   minGain: "",
   maxGain: "",
 };
 const routes = [
-  { id: "road", sport: "route", km: 80, gain: 700, direction: "N" },
-  { id: "gravel", sport: "gravel", km: 40, gain: 200, direction: null },
-  { id: "missing", sport: "route", km: 60, gain: null, direction: null },
-  { id: "missing2", sport: "route", km: 70, gain: null, direction: null },
+  { id: "road", sport: "route", km: 80, gain: 700, relief: "rolling" },
+  { id: "gravel", sport: "gravel", km: 40, gain: 200, relief: "flat" },
+  { id: "missing", sport: "route", km: 60, gain: null, relief: null },
+  { id: "missing2", sport: "route", km: 70, gain: null, relief: null },
 ];
 test("combined filters, inclusive limits and no mutation of the catalogue", () => {
   const { context } = loadApp();
   const result = context.selectRoutes(
     routes,
-    { ...filters, sport: "route", minKm: "80", maxGain: "700" },
+    { ...filters, sport: "route", relief: "rolling", minKm: "80", maxGain: "700" },
     "km-asc",
   );
   assert.deepEqual(
@@ -93,6 +94,30 @@ test("combined filters, inclusive limits and no mutation of the catalogue", () =
     ["road"],
   );
   assert.equal(routes[0].id, "road");
+});
+
+test("relief options and card badges share a pictogram for each available category", () => {
+  const { context } = loadApp();
+  const options = context.reliefOptions(routes);
+  assert.match(options, /name="relief" value="flat"/);
+  assert.match(options, /name="relief" value="rolling"/);
+  assert(!options.includes('value="mountainous"'));
+  assert.match(context.reliefOptions([{ relief: "mountainous" }]), /Montagneux/);
+  const route = {
+    ...routes[0],
+    name: "Essai",
+    file: "data/gpx/essai.gpx",
+    segments: [[[44, 0], [45, 1]]],
+  };
+  const card = context.renderCard(route);
+  assert.match(card, /class="preview-badges"/);
+  for (const [sport, label] of [["route", "Route"], ["gravel", "Gravel"], ["vtt", "VTT"]]) {
+    const markup = context.renderCard({ ...route, sport });
+    assert(markup.includes(`class="badge activity-badge">${label}</span>`));
+  }
+  assert(card.includes(context.reliefMarkup("rolling")));
+  assert(options.includes(context.reliefMarkup("rolling")));
+  assert(!context.renderCard({ ...route, relief: null }).includes("relief-badge"));
 });
 test("missing elevation stays last in both sort directions and is excluded by a limit", () => {
   const { context } = loadApp();
@@ -139,22 +164,122 @@ test("profile interpolation respects altitude gaps and track segment boundaries"
     1,
   );
 });
-test("profile hover covers the full distance; surfaces are opt-in", () => {
+test("climbs are default and profile pills expose local slopes and surfaces", () => {
   const { context, getElement } = loadApp();
   context.renderProfile({
     sport: "route",
+    detailLoaded: true,
+    slopeBins: [[5, 5.1, 6, 0], [5.1, 5.2, 8, 0]],
+    climbs: [[5, 6, 5, "3", 0]],
     profile: [
       [0, 10, 44, 0, 0],
       [10, 30, 46, 2, 0],
     ],
   });
   const host = getElement("elevationProfile");
+  const selectMode = (mode) => getElement("profileMode").onclick({
+    target: { closest: () => ({ dataset: { mode } }) },
+  });
   assert(!host.innerHTML.includes('class="surface-legend"'));
-  getElement("profileChart").onpointermove({ clientX: 441 });
-  assert.equal(getElement("profileChart").attributes["aria-valuenow"], "5.0");
-  getElement("showSurfaces").onchange({ target: { checked: true } });
+  assert.match(host.innerHTML, /data-mode="climbs" aria-pressed="true"/);
+  assert.match(host.innerHTML, /class="profile-climb-band"[^>]*fill="#EBD038"/);
+  selectMode("slopes");
+  assert.match(host.innerHTML, /data-mode="slopes" aria-pressed="true"/);
+  assert.match(host.innerHTML, /class="profile-slope"[^>]*fill="#EBD038"/);
+  assert.match(host.innerHTML, /class="profile-slope"[^>]*fill="#EB793F"/);
+  assert.match(host.innerHTML, /6 à &lt;8 %/);
+  const chart = getElement("profileChart");
+  chart.onpointermove({ clientX: 445 });
+  assert.match(chart.attributes["aria-valuetext"], /km 5–5,1.*6 %/);
+  assert.equal(getElement("profileBin").attributes.visibility, "visible");
+  chart.onpointerleave({ pointerType: "touch" });
+  assert.equal(getElement("profileBin").attributes.visibility, "visible");
+  chart.onkeydown({ key: "ArrowRight", preventDefault() {} });
+  assert.match(chart.attributes["aria-valuetext"], /km 5,1–5,2.*8 %/);
+  chart.onpointerleave({ pointerType: "mouse" });
+  assert.equal(getElement("profileBin").attributes.visibility, "hidden");
+  chart.onkeydown({ key: "End", preventDefault() {} });
+  assert.equal(chart.attributes["aria-valuenow"], "10.0");
+  assert.equal(getElement("profileBin").attributes.visibility, "hidden");
+  selectMode("climbs");
+  assert.match(host.innerHTML, /class="profile-climb-band"[^>]*fill="#EBD038"/);
+  assert.match(host.innerHTML, /Catégorie 3 \(1\)/);
+  chart.onpointermove({ clientX: 445 });
+  assert.match(chart.attributes["aria-valuetext"], /km 5–5,1.*6 %.*Catégorie 3/);
+  selectMode("surfaces");
   assert(host.innerHTML.includes('class="surface-legend"'));
   assert(host.innerHTML.includes("Non renseigné"));
+  assert(!host.innerHTML.includes('class="profile-climb"'));
+  assert(!host.innerHTML.includes('class="profile-slope"'));
+});
+
+test("the map bearing rotates clockwise and weak routes show only the label", () => {
+  const { context, getElement } = loadApp();
+  context.renderOutboundIndicator([-0.7, 0.7]);
+  assert.match(getElement("outboundDirection").innerHTML, /rotate\(135 12 12\).*Aller sud-est/);
+  context.renderOutboundIndicator([0.1, 0]);
+  assert.equal(getElement("outboundDirection").innerHTML, "Direction variable");
+  context.renderOutboundIndicator(null);
+  assert.equal(getElement("outboundDirection").innerHTML, "Direction indisponible");
+});
+
+test("slope colors use fixed boundaries and never merge across a gap or a GPX segment", () => {
+  const { context } = loadApp();
+  assert.equal(context.slopeColor(12), "#822C5F");
+  assert.equal(context.slopeColor(10), "#D4353D");
+  assert.equal(context.slopeColor(8), "#EB793F");
+  assert.equal(context.slopeColor(6), "#EBD038");
+  assert.equal(context.slopeColor(4), "#5CC17C");
+  assert.equal(context.slopeColor(2), "#21C7E8");
+  assert.equal(context.slopeColor(1.99), undefined);
+  const spans = context.slopeSpans([
+    [0, 0.1, 2, 0], [0.1, 0.2, 3, 0], [0.2, 0.3, -2, 0],
+    [0.3, 0.4, 2, 0], [0.4, 0.5, 3, 0], [0.5, 0.6, 2, 1],
+    [0.7, 0.8, 2, 1],
+  ]);
+  assert.deepEqual(Array.from(spans, ({ startKm, endKm, segment }) => [startKm, endKm, segment]),
+    [[0, 0.2, 0], [0.3, 0.5, 0], [0.5, 0.6, 1], [0.7, 0.8, 1]]);
+});
+
+test("west wind sorts by projection, then distance, with weak or absent caps last", () => {
+  const { context } = loadApp();
+  const routes = [
+    { id: "unknown", km: 5, outbound: null },
+    { id: "weak", km: 8, outbound: [0, -0.1] },
+    { id: "late", km: 30, outbound: [0, -1] },
+    { id: "east", km: 10, outbound: [0, 1] },
+    { id: "west", km: 20, outbound: [0, -1] },
+    { id: "northwest", km: 10, outbound: [0.6, -0.7] },
+  ];
+  const result = context.selectRoutes(routes, { ...filters, wind: "O" }, "wind-desc");
+  assert.deepEqual(Array.from(result, ({ id }) => id),
+    ["west", "late", "northwest", "east", "unknown", "weak"]);
+  assert.equal(context.outboundLabel([0, -1]), "Ouest");
+  assert.equal(context.outboundLabel([0.01, -0.1]), "Direction variable");
+  assert.equal(context.outboundLabel(null), "Direction indisponible");
+});
+
+test("wind direction activates the sort, and clearing or resetting restores distance", () => {
+  const { context, getElement } = loadApp();
+  context.bindEvents();
+  const form = getElement("filters");
+  const wind = getElement("wind");
+  const sort = getElement("sort");
+  wind.value = "O";
+  form.events.input({ target: wind });
+  assert.equal(sort.value, "wind-desc");
+  assert.equal(getElement("windSort").disabled, false);
+  wind.value = "";
+  form.events.input({ target: wind });
+  assert.equal(sort.value, "km-asc");
+  assert.equal(getElement("windSort").disabled, true);
+  wind.value = "N";
+  form.events.input({ target: wind });
+  form.reset = () => { wind.value = ""; };
+  getElement("reset").onclick();
+  assert.equal(wind.value, "");
+  assert.equal(sort.value, "km-asc");
+  assert.equal(getElement("windSort").disabled, true);
 });
 test("route names are escaped in download and detail links", () => {
   const { context } = loadApp();
@@ -283,4 +408,5 @@ test("GPX downloads point to the published file in every view", () => {
   context.location.hash = "#parcours/download-test";
   context.openRoute();
   assert.equal(getElement("download").href, route.file);
+  assert.equal(getElement("detailSport").textContent, "Gravel");
 });

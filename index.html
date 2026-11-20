@@ -12,12 +12,12 @@
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     />
-    <link rel="stylesheet" href="style.css?v=31" />
+    <link rel="stylesheet" href="style.css?v=40" />
     <script
       defer
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     ></script>
-    <script defer src="app.js?v=34"></script>
+    <script defer src="app.js?v=43"></script>
   </head>
   <body>
     <header>
@@ -47,28 +47,23 @@
           <span>01 — LE CATALOGUE</span>
         </div>
         <form id="filters">
-          <fieldset class="sport-filter">
-            <legend>Pratique</legend>
-            <div class="sport-options">
-              <label
-                ><input type="radio" name="sport" value="" checked /><span
-                  >Toutes</span
-                ></label
-              ><label
-                ><input type="radio" name="sport" value="route" /><span
-                  >Route</span
-                ></label
-              ><label
-                ><input type="radio" name="sport" value="gravel" /><span
-                  >Gravel</span
-                ></label
-              ><label
-                ><input type="radio" name="sport" value="vtt" /><span
-                  >VTT</span
-                ></label
-              >
-            </div>
-          </fieldset>
+          <div class="filter-categories">
+            <fieldset class="sport-filter">
+              <legend>Pratique</legend>
+              <div class="filter-pills">
+                <label><input type="radio" name="sport" value="" checked /><span>Toutes</span></label>
+                <label><input type="radio" name="sport" value="route" /><span>Route</span></label>
+                <label><input type="radio" name="sport" value="gravel" /><span>Gravel</span></label>
+                <label><input type="radio" name="sport" value="vtt" /><span>VTT</span></label>
+              </div>
+            </fieldset>
+            <fieldset class="relief-filter">
+              <legend>Relief</legend>
+              <div class="filter-pills" id="reliefOptions">
+                <label><input type="radio" name="relief" value="" checked /><span>Tous</span></label>
+              </div>
+            </fieldset>
+          </div>
           <fieldset>
             <legend>Distance · km</legend>
             <div class="range">
@@ -107,19 +102,27 @@
               />
             </div>
           </fieldset>
-          <label id="directionLabel" hidden
-            >Direction de l’aller<select id="direction">
-              <option value="">Toutes</option>
-              <option>N</option>
-              <option>NE</option>
-              <option>E</option>
-              <option>SE</option>
-              <option>S</option>
-              <option>SO</option>
-              <option>O</option>
-              <option>NO</option>
-            </select></label
-          >
+          <label class="wind-field">
+            <span class="wind-title">
+              <svg class="wind-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M3 8h10a2.5 2.5 0 1 0-2.5-2.5M2 12h17a2.5 2.5 0 1 0-2.5-2.5M5 16h9a2.5 2.5 0 1 1-2.5 2.5"/>
+              </svg>
+              Vent venant de
+            </span>
+            <span class="wind-select">
+              <select id="wind">
+                <option value="">Aucune direction</option>
+                <option value="N">Nord</option>
+                <option value="NE">Nord-est</option>
+                <option value="E">Est</option>
+                <option value="SE">Sud-est</option>
+                <option value="S">Sud</option>
+                <option value="SO">Sud-ouest</option>
+                <option value="O">Ouest</option>
+                <option value="NO">Nord-ouest</option>
+              </select>
+            </span>
+          </label>
         </form>
         <div class="results">
           <p id="count" role="status">Chargement des parcours…</p>
@@ -154,6 +157,7 @@
                 <option value="km-desc">Distance décroissante</option>
                 <option value="gain-asc">Dénivelé croissant</option>
                 <option value="gain-desc">Dénivelé décroissant</option>
+                <option id="windSort" value="wind-desc" disabled>Face au vent</option>
               </select></label
             >
           </div>
@@ -206,26 +210,39 @@
     </footer>
     <dialog id="detail" aria-labelledby="detailTitle">
       <div class="detail-head">
-        <button id="close" aria-label="Fermer le détail">✕</button
-        ><span class="eyebrow" id="detailSport"></span>
+        <button id="close" type="button" aria-label="Fermer le détail">✕</button>
+        <div class="detail-tags">
+          <span class="badge detail-activity" id="detailSport"></span>
+          <span class="badge detail-relief" id="detailRelief" hidden></span>
+        </div>
         <h2 id="detailTitle" class="sr-only"></h2>
         <p id="detailStats"></p>
-        <a id="download" class="download" download>GPX ↓</a>
-        <div class="map-toolbar">
-          <label for="basemap">Fond de carte</label
-          ><select id="basemap" aria-label="Fond de carte">
-            <option value="light">Clair</option>
-            <option value="color" selected>Couleur</option>
-            <option value="satellite">Satellite</option>
-          </select>
-        </div>
+        <a id="download" class="download" download aria-label="Télécharger le GPX">GPX</a>
       </div>
       <section
         id="elevationProfile"
         class="profile"
         aria-label="Profil altimétrique"
       ></section>
-      <div id="map" data-basemap="color"></div>
+      <div class="detail-map">
+        <div id="map" data-basemap="color"></div>
+        <div class="map-controls">
+          <span class="map-outbound" id="outboundDirection"></span>
+          <div class="map-toolbar">
+            <label for="basemap">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="m3 8 9-5 9 5-9 5-9-5Zm0 4 9 5 9-5M3 16l9 5 9-5"/>
+              </svg>
+              Fond de carte
+            </label>
+            <select id="basemap">
+              <option value="light">Clair</option>
+              <option value="color" selected>Couleur</option>
+              <option value="satellite">Satellite</option>
+            </select>
+          </div>
+        </div>
+      </div>
       <p class="map-note">
         Le point marque le départ. Vérifiez les conditions et l’accessibilité
         des voies avant de partir.
